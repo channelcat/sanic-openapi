@@ -1,6 +1,8 @@
 import inspect
+from distutils.version import LooseVersion
 from os.path import abspath, dirname, realpath
 
+from sanic import __version__ as sanic_version
 from sanic.blueprints import Blueprint
 from sanic.response import json, redirect
 
@@ -8,6 +10,9 @@ from ..autodoc import YamlStyleParametersParser
 from ..utils import get_all_routes, get_blueprinted_routes, remove_nulls
 from .doc import RouteSpec, definitions, route_specs, serialize_schema
 from .spec import Spec as Swagger2Spec
+
+SANIC_VERSION = LooseVersion(sanic_version)
+SANIC_21_3_0 = LooseVersion("21.3.0")
 
 
 def blueprint_factory():
@@ -26,7 +31,11 @@ def blueprint_factory():
 
     @swagger_blueprint.route("/swagger.json")
     def spec(request):
-        return json(swagger_blueprint._spec.as_dict)
+
+        if SANIC_VERSION >= SANIC_21_3_0:
+            return json(swagger_blueprint.ctx._spec.as_dict)
+        else:
+            return json(swagger_blueprint._spec.as_dict)
 
     @swagger_blueprint.route("/swagger-config")
     def config(request):
@@ -181,6 +190,10 @@ def blueprint_factory():
         _spec.add_tags(tags=[{"name": name} for name in tags])
 
         _spec.add_paths(paths)
-        swagger_blueprint._spec = _spec
+
+        if SANIC_VERSION >= SANIC_21_3_0:
+            swagger_blueprint.ctx._spec = _spec
+        else:
+            swagger_blueprint._spec = _spec
 
     return swagger_blueprint
